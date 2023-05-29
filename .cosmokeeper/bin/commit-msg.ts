@@ -1,10 +1,18 @@
 import * as fs from "fs";
-import { ParamsOf } from "../../src/utils/types";
 import { spawnSync } from "child_process";
 import * as rl from "readline";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ParamsOf<T extends (...params: readonly any[]) => any> = T extends (
+  ...params: infer P
+) => // eslint-disable-next-line @typescript-eslint/no-explicit-any
+any
+  ? P
+  : never;
+
 const question = (q: string): Promise<string> => {
-  return new Promise<string>((resolve, reject) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return new Promise<string>((resolve, _) => {
     readline.question(q, res => {
       resolve(res);
     });
@@ -102,7 +110,7 @@ const run = async () => {
     }, false);
     if (!branch_name_contains_a_slug) {
       console.error(
-        `branch name \'${current_branch}\' does not respect the pattern '[slug]@${config.patterns.branch}|main|master'`
+        `branch name \\'${current_branch}\\' does not respect the pattern '[slug]@${config.patterns.branch}|main|master'`
       );
       process.exit(1);
     }
@@ -120,19 +128,17 @@ const run = async () => {
         packages.find(pkg =>
           new RegExp(`${normalizePath(pkg)}`).test(normalizePath(file))
         ) ?? "root";
-      if (visited_packages.has(pkg)) {
-        // ask
-        console.log("Warning: Modified files found in multiple packages.");
-        const input = await question(
-          "Do you want to allow this commit? (y/N):"
-        );
-        if (input.toLowerCase() !== "y") {
-          console.error("execution stopped");
-          process.exit(1);
-        }
-        break;
-      }
       visited_packages.add(pkg);
+    }
+
+    if (visited_packages.size > 1) {
+      // ask
+      console.log("Warning: Modified files found in multiple packages.");
+      const input = await question("Do you want to allow this commit? (y/N):");
+      if (input.toLowerCase() !== "y") {
+        console.error("execution stopped");
+        process.exit(1);
+      }
     }
   } else {
     // Check if the branch name matches the configured patters
@@ -143,7 +149,7 @@ const run = async () => {
     ]);
     if (new RegExp(`${config.patterns.branch}`).test(current_branch)) {
       console.error(
-        `branch name \'${current_branch}\' does not respect the pattern '${config.patterns.branch}'`
+        `branch name \\'${current_branch}\\' does not respect the pattern '${config.patterns.branch}'`
       );
       process.exit(1);
     }
@@ -161,6 +167,8 @@ const run = async () => {
   if (config.lint.prettier && TO_LINT.length > 0)
     controlledSpawn("npx", ["prettier", ...TO_LINT, "--write"]);
 
+  // add linted & beautified files
+  controlledSpawn("git", ["add", ...TO_LINT]);
   process.exit(0);
 };
 run();
